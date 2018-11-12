@@ -1,12 +1,14 @@
 extern crate ggez;
 extern crate rand;
 
+mod random_walker;
+
 use ggez::event::EventHandler;
 use ggez::{GameResult, Context, event, graphics, timer};
 use ggez::conf::Conf;
 use ggez::graphics::{circle, DrawMode, present, Point2, Color, set_color};
+use random_walker::RandomWalker;
 
-use rand::random;
 use std::fs::File;
 
 const TARGET_FPS: u32 = 60;
@@ -21,13 +23,7 @@ impl GameState {
     fn new(width: f32, height: f32) -> GameResult<GameState> {
         let mut walkers = Vec::new();
 
-        // for _ in 1..5 {
-        //     walkers.push(RandomWalker::new(width, height)?);
-        // }
-
         walkers.push(RandomWalker::new(width, height)?);
-        // walkers.push(RandomWalker::new(width, height)?);
-        // walkers.push(RandomWalker::new(width, height)?);
 
         Ok(GameState {
             walkers,
@@ -65,111 +61,7 @@ impl EventHandler for GameState {
     }
 }
 
-struct RandomWalker {
-    location: Point2,
-    radius: f32,
-    color: Color,
-    bullet: Bullet,
-    destination: Point2,
-    velocity: Point2,
-    speed: f32
-}
-
-impl RandomWalker {
-    fn new(width: f32, height: f32) -> GameResult<RandomWalker> {
-        let x = width / 2.0;
-        let y = height / 2.0;
-        let color = Color::new( random::<f32>(), 
-                                random::<f32>(), 
-                                random::<f32>(), 
-                                1.0);
-        let bullet = Bullet::new();
-        let destination = Point2::new(x, y);
-        let velocity = Point2::new(0f32, 0f32);
-        let speed = 100f32;
-
-        Ok(RandomWalker {
-            location: Point2::new(x, y),
-            radius: 15.0,
-            color,
-            bullet,
-            destination,
-            velocity,
-            speed
-        })
-    }
-
-    fn update(&mut self, game_width: f32, game_height: f32, dt: f32) {
-        if !self.bullet.is_fired {
-            let bullet_location = self.location.clone();
-            let target = Point2::new(   random::<f32>() * game_width,
-                                        random::<f32>() * game_height);
-            self.bullet.fire(bullet_location, target);
-        }
-
-        if self.is_at_destination() {
-            let x = random::<f32>() * game_width;
-            let y = random::<f32>() * game_height;
-
-            self.destination = Point2::new(x, y);
-        }
-
-        self.step(dt);
-    }
-
-    fn draw(&mut self, context: &mut Context) -> GameResult<()> {
-        set_color(context, self.color)?;
-        circle(context, DrawMode::Line(1.0), self.location, self.radius, 1.0)
-    }
-
-    fn keep_in_arena(&mut self, arena_width: f32, arena_height: f32) -> GameResult<()> {
-        if self.location.y < 0.0 {
-            self.location.y = 0.0;
-        } else if self.location.y > arena_height {
-            self.location.y = arena_height;
-        }
-
-        if self.location.x < 0.0 {
-            self.location.x = 0.0;
-        } else if self.location.x > arena_width {
-            self.location.x = arena_width;
-        }
-
-        Ok(())
-    }
-
-    fn is_at_destination(&self) -> bool {
-        let difference = Point2::new(
-            self.location.x - self.destination.x,
-            self.location.y - self.destination.y
-        );
-        let distance = get_magnitude(difference);
-
-        distance < 3f32
-    }
-
-    fn step(&mut self, dt: f32) {
-        let direction = Point2::new(
-            self.destination.x - self.location.x,
-            self.destination.y - self.location.y
-        );
-        let mut normalized_direction = Point2::new(0f32, 0f32);
-
-        if let Some(result) = normalize(direction) {
-            normalized_direction = result;
-        }
-        
-        let velocity = Point2::new(
-            normalized_direction.x * self.speed,
-            normalized_direction.y * self.speed
-        );
-
-        self.location.x += velocity.x * dt;
-        self.location.y += velocity.y * dt;
-    }
-}
-
-struct Bullet {
+pub struct Bullet {
     location: Point2,
     velocity: Point2,
     size: f32,
@@ -255,7 +147,6 @@ fn normalize(vector: Point2) -> Option<Point2> {
 
 fn main() {
     let mut configuration_read = File::open("conf.toml").unwrap();
-
     let configuration = Conf::from_toml_file(&mut configuration_read).unwrap();
     let context = &mut Context::load_from_conf("random_walkers", "Brookzerker", configuration).unwrap();
     let (width, height) = graphics::get_size(context);
